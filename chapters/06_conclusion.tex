@@ -1,0 +1,37 @@
+\chapter{Conclusion}\label{chapter:conclusion}
+
+In the course of this thesis, a semi-supervised tracker for unknown objects with a novel past frame encoder and a matching module is proposed. Our method can be used to guide the actions of mobile robotic agents deployed in dynamic, real-world settings, that may involve cluttered scenes with randomly scattered small objects. 
+For both the past frame encoder and the matching module, different options are examined. In this context, the following three research questions were formulated:
+
+\begin{enumerate}
+    \item How do different options for past frame encoding and matching compare with respect to their performance and computational cost? 
+    \item Does our method outperform semi-supervised trackers optimized for a different domain?
+    \item Can tracking of segmentation masks be beneficial for the overall achieved segmentation quality compared to single-shot prediction in challenging scenarios?
+\end{enumerate}
+
+Firstly, we summarize our findings from \autoref{chapter:Results} regarding the novel, tracking-related modules in the proposed DL network. 
+For the past frame encoder, three different options were investigated, from the very lightweight bounding box encoder to the computationally intensive backbone encoder and the powerful and lightweight mask encoder. 
+We conclude that the mask encoder combined with any matching mechanism is more suitable for robotic tracking, as it performs better in more challenging scenes with object occlusions and dramatic changes in appearance. 
+Nonetheless, the bounding box encoder combined with separable attention matching may also pose an interest in use cases where the environment is controlled and the camera movement is slow and purely translational, like in the case of a conveyor belt scene without much background clutter. Finally, the initial attempt to encode past frame information with a siamese backbone encoder similar to our input feature encoder performs slightly worse than the mask encoder, but adds a computational cost in the pipeline that makes arguing for its deployment harder.  \par
+
+Comparing the proposed matching mechanisms, separable attention achieves better performance than \gls{GMM} matching in the single-scale setup with single object and background descriptors. 
+However, GMM-based matching outperforms attention in its more elaborate multi-scale variant with multiple background/object descriptors. 
+This finding agrees with our initial intuition that multiple object descriptors may be beneficial for effective foreground/background separation in cluttered scenes like these encountered in the robotic setup. 
+Moreover, from the cross-domain analysis on DAVIS, GMM matching seems to be more promising for sim2real deployment in real-world applications. 
+Nonetheless, any conclusions regarding sim2real applicability require further quantitative analysis on a real-world dataset, which is left as future work.
+In conclusion, our GMM matching in its multi-scale, multi-descriptor variant outperforms attention-based matching in the experiments and can be considered the optimal option combined with the mask encoder for tracking unknown objects in the robotic setup. \par
+
+
+Regarding the second research question, we summarize the results of the comparison between the semi-supervised tracker HODOR, designed for a different domain, and our proposed method, which is optimized for the particular attributes of the robotic setup. 
+HODOR achieves an overall comparable performance to our best-performing method variant due to its very accurate mask predictions, both in terms of region similarity and contour accuracy of the predicted masks. 
+However, we demonstrated that HODOR fails to track small objects and in that regard does not satisfy the requirements for an optimal robotic tracker as formulated in \autoref{chapter:introduction}. \par
+
+Lastly, our third research question was related to whether segmentation quality can benefit from past feature propagation in challenging scenes. 
+% Especially if tracking is added in the system requirements, then learning-based tracking poses also benefits for the overall achieved segmentation quality, indicated by the achieved $J\&F$ score, compared to heuristic based tracking with a single shot segmentation network and IoU association. However, 
+If temporal consistency is completely ignored and each input frame is treated as independent, at least in the synthetic test set, the single shot segmentation network INSTR performs comparably well with our proposed network on average. However, we demonstrated that in very cluttered scenes with abrupt camera movement, the predicted mask quality from our tracker outperforms the one from INSTR (see \figref\ref{fig:qualitative_instr}). 
+Additionally, the qualitative results on the real-world scenes recorded in the lab imply that past frame feature propagation is beneficial for the robustness of predictions even in easier scenes (see \figref\ref{fig:qualitative_floor}). 
+
+To conclude, GMM matching poses an interesting alternative to attention-based matching in the context of unknown object tracking for robotic applications and opens up a promising direction for further future investigation. For example, involving more than one past frame in the matching process between current and past frames could be an interesting method enhancement. 
+Different works in current literature like \parencite{yang2021aot} and \parencite{cheng2022xmem} propose more elaborate memory modules to process and encode multiple past frames in order to improve their performance. 
+Apart from matching with features sampled from multiple past features, we hypothesize that enriching the past frame features with
+encoded past frame predictions during training could further improve the robustness of the proposed object-tracking segmentation network. \par

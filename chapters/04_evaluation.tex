@@ -1,0 +1,90 @@
+\chapter{Experiments and Evaluation}\label{chapter:EvalMetrics}
+%TODO: move all information from Pros/cons in text and remove column from table!
+
+
+
+
+\section{Evaluation metrics}
+As already mentioned in the related work section, recently there's been a systematic attempt within the dynamic vision community to publish large densely annotated video datasets and establish challenges to standardise the comparison between tracking algorithms. Each challenge is introduced along with its standard evaluation metrics, depending on the task formulation and the dataset characteristics.\par
+
+The MOT challenge family involves videos with multiple objects with similar appearance, all belonging to the same semantic class, like pedestrians. 
+% In the KITTI MOTS variant, again many instances of two semantic classes are present, pedestrians and cars. 
+As expected, following the same objects along scenes where many similar objects are present is a challenging task. Many trackers correctly detect all objects in a particular scene, but do not retain the right track id for the same object in different frames. As a result, the metrics established for the MOT/MOTS challenges focus more on object id consistency than detection/segmentation quality. \par
+%(a low threshold of 0.5 is used for successful detections) and then the detections need to be assigned to a certain gt and compare track ids.
+
+The standard tracking metrics used in the MOT challenges are MOTA and IDF1. 
+MOTA was first introduced in \parencite{MOTAmetric}
+owes its popularity to its expressiveness as it combines three sources of possible errors (FN, FP, IDSW). MOTA is already indicative of id consistency within a sequence by penalising id switches. However, there are also metrics focusing primarily on track identity preservation capability over the entire sequence like IDF1. 
+% WHy may we need MOTSA as well
+For the MOTS challenge, also MOTSA and sMOTSA replace MOTA. MOTSA is identical with MOTA, except for the segmentation mask based IoU computation. sMOTSA on the other hand is more indicative of segmentation quality as the TP term in the MOTSA formula is replaced by the IoU score of the detections.\par
+
+Apart from the standard MOTA/MOTSA and IDF1 metrics, higher order metrics have been proposed for the MOT challenge, like HOTA for MOT and STQ for KITTI-MOTS. HOTA was proposed as an alternative to the separate evaluation of detection/trajectory matching with MOTA/IDF1 respectively. STQ similar to HOTA comprises of two components and assess detection and association quality on trajectory level with one value. The SQ component assesses semantic segmentation quality, while AQ similarely to $AssA_a$  from HOTA assesses association quality, but on a pixel instead of object level. This renders AQ more appropriate for dense prediction tasks. \par
+
+VIS datasets like YouTube VIS use an adjusted version of the standard COCO evaluation metrics AP, AP50, AP75 for multiple frames. More specifically, volumentic IoU instead of simple IoU is used to obtain the precision recall curves  to compute AP values for different IoU thresholds. \par
+
+Finally, VOS datasets like DAVIS and YouTube VOS use the J and F metrics. J is the Jaccard index which quantifies region similarity between estimated and ground truth masks. F is the contour accuracy, focusing solely on the contours. In general there's a linear dependence between J and F (parencite davis 2016). \par
+
+Our task is closer to a VOS than a VIS formulation since we treat each object as belonging to a separate class. AP and its variants though especially in the mAP version is computed for different IoU thresholds again focuses on correctly detected objects in terms of TP/FP/FN and less on segmentation quality. \par
+
+By the nature of our VOS algorithm that includes patches to propagate information from the previous frame we expect to have few misclassified objects, so TP on an object level is not an indicative metric for the challenges we face while training the algorithm. Instead we expect to have problems like mask leaking, so we are more interested in assessing the segmentation quality for our tracked objects. Hence, we prefer the use of standard VOS metrics like J\&F values instead of AP. \par
+
+
+\begin{gather}
+    m(J,S) = \frac{1}{|O_S|}\sum_{o \in O_S} \frac{1}{|F_{S(O)}|}\sum_{f \in F_{s(o)}}J(m_o^f, g_o^f)\\
+    m(F,S) = \frac{1}{|O_S|}\sum_{o \in O_S} \frac{1}{|F_{S(O)}|}\sum_{f \in F_{s(o)}}F(m_o^f, g_o^f)\\
+    M(S) = \frac{1}{2}[m(J,S)+m(F,S)]
+\end{gather}
+\TODO{explain formulas! }
+
+\section{Evaluation datasets}
+\subsection{Evaluation Test set}
+For the method evaluation, a test set with longer sequences (minimum 50 frames) was generated with Blenderproc \parencite{denninger2019blenderproc}. The test set generation process resembles the training set generation with regard to the scene generation. More specifically, similarly to the training set scene generation, a random number of objects and a random table are sampled from the database for the scene generation. Similarly to the training set scene generation, the range of possible object numbers is (5,12) but in practice scenes with less than 5 visible objects are also generated, since the objects are dropped during simulation on the table and some objects may end up under the pile completely invisible for the whole scene. In the end, an equal number of crowded (num\_of\_objs <6) and not crowded scenes was created. \par
+For each generated scene, two types of camera movements where sampled. One primarily translation movement towards the objects simulating the case where the object is approaching the objects. This type of movement is also encountered in case the robot is still but the objects are moving away from it on a conveyer belt (it's exactly the reverse movement, instead of zooming in we have zooming out. But either way the object scale is only affected but not their view, since no new vantage points are included- no rotation). And one rotational scene around the objects resulting in different viewpoints per frame. The last movement type is simulating the case where the robot has approached its targets and is inspecting the scene to plan its movement for the manipulation task eg grasping. \par
+
+Apart from the two different types of movements (zooming in/ rotational), two different camera velocities where sampled within the same scene. For that purpose, for each camera movement in each scene 200 frames where sampled. For the fast scene variant, the registered frames for the sequence used in the evaluation set were sampled every 4 frames, while for the slow ones, just a subset of 100 frames from the original sequence of the 200 frames was used. An overview of all generated scenes in all their variants in terms of camera movement is provided in the Appendix. \par 
+
+Apart from the movement type and crowdness analysis, an attempt was made to quantify how cluttered each scene is, since cluttereness is one of the main challenging factors in tracking. The visibility score on a frame level used for the temporal analysis in the experiments section was estimated based on the ratio of the number of pixels of the visible part mask for an object $|o_{vis}|$ with the mask if the object was not covered $|o_orig|$. The ratios are computed per class seperately and averaged over all classes $O_S$ \par
+
+\begin{gather}
+        vis_score = \frac{1}{|O_S|}\sum_{o \in O_S} \frac{|o_{vis}|}{|o_orig|} \\
+     \text{where } O_S \text{ the number of classes in the frame and } |o_{vis}|,|o_orig| \\ 
+     \text{the number of non trivial (non zero) pixels in the binary masks }
+\end{gather}
+
+     
+The clutterness score on a scene level registered in table 
+%cite table name
+is computed as the mean over all cluttereness scores of all masks in all frames. Similar to the J \& F metrics, the mean is taken first for each class seperately along all frames and then along all classes. \par
+
+
+\begin{gather}
+         vis_score = \frac{1}{|O_S|}\sum_{o \in O_S} \frac{1}{|F_{S(O)}|}\sum_{f \in F_{s(o)}}\frac{|o_{vis}|^f}{|o_orig|^f}
+        \\
+     \text{where } O_S \text{ the number of classes in the frame and } |o_{vis}|,|o_orig| \\ 
+     \text{the number of non trivial (non zero) pixels in the binary masks }
+\end{gather}
+
+
+
+% actually first we take the per class mean over all samples in sequence and then the mean over all classes like the J metric computation! 
+\subsection{Cross domain evaluation test set- davis}
+\TODO{write a few words on Davis}
+\section{Ablations}
+\TODO{Give an overview of what kinds of experiments where performed, what's the logic behind, what do we expect to happen?}
+\subsection{Training setup}
+
+\subsection{Results Overview}
+%here you 'll add a table with everything
+
+\subsection{Type of movement analysis}
+\subsection{Type of movement + clutterness/crowdness analysis on corner cases}
+\section{Final evaluation and experiments}
+\subsection{Training setup}
+
+\subsection{Comparison with SOTA-HODOR}
+\subsection{Results Overview}
+%here you 'll add a table with everything
+
+\subsection{Type of movement analysis}
+\subsection{Type of movement + clutterness/crowdness analysis on corner cases}
+%TODO: add a few words on hodor! 

@@ -1,0 +1,99 @@
+% !TeX root = ../main.tex
+% Add the above to each chapter to make compiling the PDF easier in some editors.
+% comment out multiple lines with ctrl + '/'
+
+% Interesting related work https://arxiv.org/pdf/1807.11699.pdf
+
+\chapter{INSTR}\label{chapter:INSTR}
+% Stella's general remark: 
+% The related work section is not that relevant to me, cause I'm not changing our take on
+% instance segmentation. I'm building on top of it instead with tracking techniques.
+% The most important thing about instr is to understand its inner workings, so that I can make potential adjustments for tracking. But that's it :)
+
+%TODO: explain RGB vs RGB-D
+
+\section{Architecture overview}
+
+INSTR leverages the power of transformers to perform unknown object instance segmentation from stereo input images. Similarly to the DETR paradigm, it uses a CNN based feature extraction module. The resulting feature embeddings are then led to a transformer encoder where self attention is computed between them. In a similar fashion to DETR, a fixed number of object queries is led to the TF decoder, where they are self attented. Then cross attention is computed between the incoming object queries after the self attention block and the encoder output. The final output queries are computed in a slightly different fashion than the decoder in DETR (expanded attention), to make them more suitable for upsampling in the FPN module that acts as a query decoder. An overview of the INSTR architecture is provided in (figure). INSTR also features an auxilary decoder with its respective L1 loss that estimates disparity (reconstructs depth). It's been shown that when using the version of the model with the auxilary output, the instance segmentation results are also improved. For the purpose of this analysis though, we'll mainly focus on the instance segmentation part of the model, as this is the part that is modified for tracking using the powerful concept of track queries.
+
+\subsection{Feature Extraction Module:}
+The feature extraction encoder takes as input a stereo pair. Each image is forwarded through the first two layers of a pretrained ResNet-50 \cite{resnet}with shared weights. After each ResNet Layer, the pair of extracted feature maps is led to a correlation layer \cite{segstereo}, \cite{flownet} to capture stereoscopic information.  Correlation between two feature map patches is computed based on the formula 
+\begin{equation}
+    corr(x_a, x_b) = \sum_{i=0}^{d_{max}} \langle {f_a(x_a),f_b(x_b + \begin{pmatrix}
+         i * s \\
+           0 \\
+        \end{pmatrix} )} \rangle
+\end{equation}
+where $x_a, x_b$ the patch centers, $d_{max}$ the maximum horizontal shift of the feature map patch $f_b$ compared to $f_a$. The choice of $d_{max}$ affects the  horizontal range around $x_b$ for which we consider the correlation computation relevant with standard choice of stride s=1. We don't compute correlation in a whole neighborhood, but rather only horizontally. \par % other wise this 0 on the matrix would have been i * s as well and dmax wouldn't have been max horizontal displacement but rather displacement d like in the original flownet paper 
+
+The value of $d_{max}$ is defined based on the camera intrinsic parameters $f_x$ and $b_x$ and the minimum camera-to-object distance $z_{min}$. Also the output stride is involved in the computation, but this is a network parameter and won't change if we change the type of camera we use for input:
+\begin{equation}
+    d_max \approx \frac{f_x * b_x}{z_{min} * output_stride}
+\end{equation}
+
+Since $f_x$ and $b_x$ and $z_min$ may change for different sensors used as input or different setups, the parameter s can be adjusted to allow for the use of the same network with fixed (pre chosen) number of output channels $c_c$. The new value for s' is computed as follows:
+
+\begin{gather}
+    s' = \frac{d'_{max}}{d_{max}}s \\
+    \text{where } \frac{d_{max}}{s} = c_c
+\end{gather}
+
+The corresponding $f_b$ for adjusted $d_{max}$ and $s'$ is obtained with bilinear grid mapping.
+
+In ResNet-50 typically for segmentation tasks the choice of output stride is 8 instead of 32 that results in denser maps. However, this would mean far more inputs for the  to compute self attention on and extreme computational intensity. To achieve a more dense representation of the feature map (smaller spatial size, but equally expressive) they use the stride of 32, but also use axial attention \cite{axial} instead of the classic ResNet layers l3 and l4.
+% reduction layers are 1x1 convolutions that reduce number of channels! 
+% TODO: potentially add more on axial attention! 
+\subsection{Transformer Encoder-Decoder:}
+
+The Transformer Encoder-Decoder in INSTR is very similar to the transformer block in DETR. The main architectural difference lies in the way the final cross attention between the encoder output and the self attended object queries is computed in the TF decoder. More specifically, an expanded version of attention is computed that results in a tensor with one extra dimension $N_kv$. This is achieved mathematically by altering the way the attention map $A = f(Q, K)$ is 'projected' on the values vector V. Instead of computing a classic matrix multiplication between A and V, the summation step in the matrix multiplication algorith is ommited, resulting in an expanded by one dimension tensor. The result for a combination of two 2d matrices is a 3D tensor, instead of a 2D matrix like in classic matrix multiplication. Pytorch allows for this kind of custom computations by using the $torch.einsum()$ function and specifying the desired output dimensions. In original attention, the more rigid torch.mm module is used. \par
+
+For an attention map $A \in \mathbb{R}^ {N_q x N_{kv}} $ and values tensor $V \in \mathbb{R}^ {d x N_{kv}} $ the classic and expanded versions of attention result in outputs with the following dimensions:
+\begin{equation}
+    att = mm(A, V)
+\end{equation}
+results in $att \in \mathbb{R}^ {N_q x d}$
+
+\begin{equation}
+    exp_att = mm(A, V)
+\end{equation}
+results in $att \in \mathbb{R}^ {N_q x N_{kv} x d}$
+
+Another slight difference between the DETR transformer and the INSTR transformer is the number of object queries. As explained in \cite{DETR} the number of object queries is a hyoerparameter and shouldn't be smaller than the maximum number of objects in a scene. For training INSTR the number of instances in the dataset are always less than 15, hence the choice of Nq=15 instead of 100 like in DETR. This choice allows for faster training.\par
+
+\subsection{Query decoder}
+The query decoder takes as input the expanded output queries and upsamples them from 15 x 20 to 120 x 160 spatial resolution. The upsampling is performed with a feature pyramid network (FPN)\cite{fpn} style CNN similar to the one used in \cite{DETR} for panoptic segmentation. The final output resolution 480 x640 is obtained by performing bilinear interpolation on the 120 x 160 prediction maps.\par
+
+%For more information on FPNs check here: https://paperswithcode.com/method/fpn
+%FPNs for instance segmentation where explored as an option already in Mask RCNN. Also used in SimNet \cite{simnet} (they perform instance segmentation %without transformers, just with the resnet-fpn!)\par
+\subsection{Auxilary decoder}
+The auxilary decoder is basically an identical FPN to the one used for the segmentation map. It kinda makes sense, as when we estimate a disparity map, we estimate a depth value for each pixel of the original input image. The prediction must have spatial dimensions of 480x640. Hence, it makes sense to use some architecture that performs upsampling like an FPN. The two decoders though identical architecture wise learn different weights, as they are trained with different loss terms. The weights of the disparity decoder learn only from the $L_hub$ term in the total loss.
+\section{Loss functions}
+The loss design in INSTR is very important in ensuring that the learned query embeddings in the TF decoder learn to point to different objects, to successfully split them with the cross attention step and the upsampling. The permutation invariance of the decoder alone doesn't suffice for the job.
+Given the final output set $\hat{y}$ a bipartite matching between the ground truth masks $y = {y_1, ..,y_L}$ and the predicted masks is performed. For matched prediction/ground truth mask pairs, the dice loss is computed. Both the cost matrix for the optimal assignment of prediction/ground truth mask pairs and the final loss computation are based on some version of the dice loss.\par
+\subsection{Bipartite matching}
+
+\begin{gather}
+    \hat{\sigma} = \underset{\sigma \in \mathfrak{S}_{N}}{\mathrm{argmax}}\sum_{i}^{N}C_{match}(y_i, \hat{y}_{\sigma(i)}) \\\
+    \text{with } C_{match} = - \frac{2 y_i \hat{y}_{i}}{ y_i + \hat{y}_{i}} % reminds me of an iou cost kind of thing, check wikipedia on the jaccard index
+\end{gather}
+
+\subsection{Loss computation without disparity}
+The final loss computation between matched pairs of mask predictions and ground truths $y_{l}, \hat{y_{i}}$ is computed based on whether the gt is  a zero mask. If $y_{l}^{*} = 0$ an exponential logarithmic dice loss (add citation) instead of the classic dice loss,to ensure that the network is successful in predicting also completely zero masks. 
+\begin{equation}
+L_{segm}^{i} = 
+    \begin{cases}    
+        L_{dice}(y_{l}^{*}, \hat{y_{i}}) \text{      if } \sum y_{l}^{*} \neq 0\\
+        -ln(L_{dice}(y_{l}^{*}, \hat{y_{i}}))^{\gamma} \text{      if } \sum y_{l}^{*} = 0\\
+    \end{cases}
+\end{equation}
+
+\subsection{Loss computation with disparity}
+In the version of INSTR with the disparity decoder, two changes take place with regard to the simple dice loss of eq (cite equation). First, a huber loss term is computed for the disparity map prediction and its respective disparity map ground truth. Secondly, the dice loss from (cite eq) is computed for each layer of the TF decoder the total segmentation loss term results as the sum of the respective segmentation losses in each one of the decoder layers. The total loss is obtained by summing the segmentation and huber loss terms with the respective weighting.
+
+\begin{equation}
+L = \alpha L_{hub} + \beta \sum_{j}^{M_{dec}} \sum_{i}^{N_q} L_{segm}^{ij}  
+\end{equation}
+
+
+
+

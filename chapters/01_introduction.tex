@@ -1,0 +1,66 @@
+% !TeX root = ../main.tex
+% Add the above to each chapter to make compiling the PDF easier in some editors.
+% comment out multiple lines with ctrl + '/'
+
+%TODO: revise an introduction in 2 pages
+\chapter{Introduction}\label{chapter:introduction}
+
+
+
+Modern robotic research has shifted from designing robots solely for use in controlled industrial environments to equipping them for deployment in settings involving human-robot interaction.
+However, 'human' environments are inherently chaotic and highly unpredictable: 
+Firstly, scenes encountered by robotic agents tend to be cluttered, as neither the background nor the object positioning are known and explicitly set up for robotic manipulation. 
+Additionally, novel, unknown scenarios arise, as human operators change and interact with the environment. 
+Moreover, scenes are highly dynamic, with both objects and the robot itself potentially in motion. In such a dynamic and unpredictable setup, robotic perception plays a crucial role in successfully planning and executing robotic manipulations. \par
+
+In this context, dense object detection can be the first perception prerequisite for accurate object localization with 6D pose estimation \parencite{augmentedAutoencoder} or more robust grasp prediction \parencite{graspnet}. 
+Moreover, a class-agnostic operation of dense detection algorithms is critical for collision-free path planning in environments where unknown objects may be introduced to the scene at any time and should not be confused with the background. 
+Most importantly, due to the dynamic nature of the scenes in such setups, time-consistent predictions are particularly important for a robust planning and execution of target manipulations. 
+Additionally, temporally consistent predictions open up the possibility of new data generation for continuous learning during deployment, in a similar fashion to how human agents learn to detect new objects after careful inspection of multiple views in the course of time~\parencite{boerdijk2020selfsupervised}. \par
+
+
+Designing an algorithm with the aforementioned attributes, namely performing unknown, dense, time-consistent object detection in a robotic setup, is a particularly challenging task. 
+Firstly, illumination changes and sensor noise in the camera input pose difficulties in accurate object prediction. 
+An additional level of complexity is introduced from the dynamic nature of the scenes, due to the movement of the robotic system and/or the objects, potentially resulting in dramatic changes of the objects' appearance. 
+Finally, another problematic factor for temporally consistent object recognition in real-world, uncontrolled environments is the level of 'clutterness' that may be encountered both with regard to how close the objects are positioned, but also due to objects being part of the background that need to be recognized for collision avoidance. \par
+
+In recent years, important progress has been made in single-shot unknown object segmentation for robotic applications, with works that address the first two aforementioned aspects like \parencite{durner2021unknown} and \parencite{simnet}. 
+% \comWB{whats missing in this paragraph are unknown objects, this is particularly important if you cite instr here}.
+%todo add citations.
+However, extending such single-shot approaches in the temporal domain is not trivial and remains an ongoing research topic in the field of robotic vision.
+Therefore, the main scope of this thesis is to address the problem of improving the robustness of unknown object instance segmentation in robotic applications from the view of temporal consistency by incorporating tracking techniques. \par
+
+Tracking can be formulated as the task of assigning a unique id to a detected object in the first frame it appears and maintaining that id for the same instance in future frames in which it is successfully detected. Intuitively, this id association process for predicted objects in different frames can be based either on a correct notion about the trajectory each distinct object is following or an adequate model of its appearance \parencite{tracktor_2019_ICCV}. 
+In practice, tracking techniques are often based on some form of information propagation between neighboring frames, either motion- or appearance-based. \par
+
+Current established tracking approaches for unknown objects are not designed and optimized for the robotic setup. 
+For example, the method proposed in \parencite{athar2022hodor} is designed to track a small number of large, distinct bodies, like the ones encountered in the popular DAVIS evaluation set \parencite{davis}. In contrast, a robotic agent may be expected to detect and manipulate many smaller objects, e.g. tools, randomly scattered on a surface.
+Moreover, available methods are not optimally designed with regard to the computational cost, as they are not meant to be deployed on a robotic system. 
+Therefore, they often feature elaborate attention mechanisms \parencite{athar2022hodor}, \parencite{savi} or complex memory modules \parencite{cheng2022xmem}, \parencite{yang2021aot}. \par
+
+Motivated by the lack of a powerful and efficient tracking method for unknown object segmentation
+optimized for the challenges arising in robotic dynamic vision, this thesis aims at proposing a model with these characteristics.
+We draw inspiration from available works and propose a novel semi-supervised \gls{DL} network, explicitly designed for performing temporally consistent object segmentation in particularly cluttered scenes that involve changes in an object's appearance caused by fast camera movement. 
+% The initialization process required in semi-supervised tracking methods is seen as a
+% desirable characteristic for more effective foreground/ background separation in very
+% cluttered scenarios.
+Crucially, semi-supervised tracking allows for initialization of the process in a class-agnostic manner, solely based on binary segmentation masks of objects of interest, which is compatible with our problem formulation. Moreover, the initialization process can be realised in different ways, ranging from utilizing segmentation masks predicted by another network to human-in-the-loop interaction, thereby making this category of trackers highly modular.
+For the aforementioned reasons, we target a solution within the semi-supervised family of tracking techniques, especially optimized for the requirements of the robotic setup.
+
+Our proposed semi-supervised network introduces temporal consistency in the predicted segmentation masks by matching past frame encoded data with the feature maps of the current frame. 
+This process results in more temporally consistent feature encodings forwarded to the decoder.
+In this scope, we formulate the following research questions:
+%\comWB{you should have questions here}:
+
+\begin{itemize}
+    \item How do different 'novel' mechanisms for past frame encoding and matching compare with respect to their performance and computational cost? Is there an optimal configuration for the robotic setup? 
+    \item Is our proposed method more successful in tracking unknown objects in cluttered scenes than available methods designed for a different domain?
+    %\comWB{why are small objects important?} 
+
+    \item  Besides the benefit of temporal consistency, does learned past frame information propagation also result in better segmentation quality compared to single-shot segmentation (i.e. segmentation that does not depend on information from past frames) in the context of unknown object segmentation?
+\end{itemize}
+
+
+
+This thesis is organized into 6 chapters. In \autoref{chapter:Related_work_tracking}, the related work is presented with the main focus on available tracking methods in the literature. In \autoref{chapter:method}, the proposed DL architecture in all its variants is presented along with the theoretical background for the main modules comprising the model. In \autoref{chapter:ExpSetup}, the experimental setup for the results and analysis included in \autoref{chapter:Results} are provided. Finally, in \autoref{chapter:conclusion} the derived conclusions from the experimental part and the outlook for future improvements are summarized.
+

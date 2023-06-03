@@ -1,0 +1,43 @@
+\chapter{\abstractname}
+
+%TODO: Abstract
+
+Robust real-time unknown object segmentation is critical for the successful planning and execution of robotic manipulations in the real world. 
+To further ensure collision-free path planning in dynamic, highly unpredictable environments, tracking techniques can be incorporated, resulting in temporally consistent mask predictions.
+Specifically semi-supervised tracking, where the algorithm is initialised with a set of target objects to be tracked, poses a particular interest for the robotic setup, due to its modularity and compatibility with tracking unknown objects. However, most available semi-supervised methods in the literature are not explicitly designed for tracking in cluttered, highly dynamic scenes.  
+Hence, we propose a novel semi-supervised Deep Learning based tracker with a separate encoder for the past frames and a matching module for the past and current frame encodings, designed to alleviate the aforementioned challenges. For the past frame encoder, three novel options are examined: a siamese backbone encoder, a bounding box encoder and a mask encoder. Crucially, for the matching module two variants are proposed, a separable attention-based matcher and a novel GMM-based matcher. In the experimental part, the proposed options for the past frame encoder and the matching strategy are compared in view of their performance and computational cost. 
+Moreover, a comparison of our method with both a simple heuristic-based and an established semi-supervised tracker is carried out. Finally, a qualitative analysis on the sim2real performance of the proposed method and the effect of tracking on the achieved segmentation quality is performed. 
+   
+\makeatletter
+\ifthenelse{\pdf@strcmp{\languagename}{english}=0}
+{\renewcommand{\abstractname}{Kurzfassung}}
+{\renewcommand{\abstractname}{Abstract}}
+\makeatother
+
+\chapter{\abstractname}
+
+%TODO: Abstract in other language
+\begin{otherlanguage}{ngerman} % TODO: select other language, either ngerman or english !
+Eine robuste Segmentierung unbekannter Objekte in Echtzeit ist entscheidend für eine erfolgreiche Planung und Ausführung von Robotermanipulationen in der realen Welt. 
+Um eine kollisionsfreie Bahnplanung in dynamischen, hochgradig unvorhersehbaren Umgebungen zu gewährleisten, können Tracking-Techniken eingesetzt werden, da sie zu zeitlich konsistenten Maskenvorhersagen führen.
+Insbesondere das semi-supervisierte Tracking, bei dem der Algorithmus mit einer Gruppe von zu verfolgenden Zielobjekten initialisiert wird, ist aufgrund seiner Modularität und Kompatibilität mit der Verfolgung unbekannter Objekte für robotische Anwendungen von besonderem Interesse. 
+Jedoch sind die meisten in der Literatur verfügbaren semi-supervisierten Methoden nicht explizit für die Verfolgung in robotisch relevanten Szenen konzipiert.  
+Daher schlagen wir einen neuartigen semi-supervisierten Deep Learning basierten Tracker mit einem separaten Encoder für die vergangenen Frames und einem Matching-Modul für die vergangenen und aktuellen Frame-Encodings vor, um die oben genannten Herausforderungen zu bewältigen. 
+Für den Encoder der vergangenen Frames werden drei neue Optionen untersucht: ein Siamese-Backbone-Encoder, ein Bounding-Box-Encoder und ein Masken-Encoder. 
+Für das Matching-Modul werden zwei Varianten untersucht: ein separable-Attention basierender Matcher und ein neuartiger GMM-basierter Matcher. 
+Im experimentellen Teil werden die vorgestellten Optionen für den Past-Frame-Encoder und die Matching-Strategie im Hinblick auf ihre Leistung und Rechenkosten verglichen. 
+Darüber hinaus wird ein Vergleich unserer Methode mit einem einfachen heuristischen und einem etablierten semi-supervisierten Tracker durchgeführt. 
+Abschließend wird eine qualitative Analyse der sim2real Leistung der vorgestellten Methode und der Auswirkungen des Trackings auf die erreichte Segmentierungsqualität durchgeführt. 
+
+
+
+
+\end{otherlanguage}
+
+
+% Undo the name switch
+\makeatletter
+\ifthenelse{\pdf@strcmp{\languagename}{english}=0}
+{\renewcommand{\abstractname}{Abstract}}
+{\renewcommand{\abstractname}{Kurzfassung}}
+\makeatother

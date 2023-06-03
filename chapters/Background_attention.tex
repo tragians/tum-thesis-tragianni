@@ -1,0 +1,131 @@
+% another potentially good source!
+% https://arxiv.org/pdf/2012.12556.pdf
+% https://arxiv.org/pdf/2101.01169.pdf Fig.2 on self attention is pretty good
+% Source is this: https://arxiv.org/pdf/1805.08318.pdf but not 100% our self attention mechanism. Not at all actually, it acts on self attention map, which is not what we want
+\chapter{Theoretical background}\label{chapter:attention_in_imaging}
+\section{Attention mechanisms in various domains}
+The transformer architecture was first introduced in \cite{AttentionIsAllYouNeed} to address the task of machine translation. Up until that point in time, machine translation, like many other machine learning problems with sequential data as input, was tackled with the use of recurrent architectures like RNNs and their more elaborate successor LSTMs. However, the sequential computation of hidden states in this type of models has proven to be problematic when dealing with longer sequence lengths. Attention mechanisms on the other hand are a more flexible way to model dependencies between tokens in a sequence regardless of the distance between them. Hence, transformers have proven to be far more powerful than recurrent architectures when dealing with sequential data. \par
+%It' worth noting that attention mechanisms were used along with RNNs already before the attention is all you need paper ( also check Andrea's review paper on the matter to be more original.) What changed with \cite{AttentionIsAllYouNeed} is that they got reed of the recurrent part and got amazing results.
+%TODO: think whether you would like to mention GTP along the nlp models
+Very soon after their introduction, transformer based architectures were utilised in domains with sequential data like audio and speech recognition \cite{DETR}. Due to their success, there were also systematic efforts to introduce them in imaging. Eventually, in 2020 the first transformer based model for imaging, DETR \cite{DETR}, was proposed. DETR still uses convolutional layers for feature extraction and applies attention mechanisms only on the extracted feature embeddings.\par
+DETR has proven to be very powerful for the task of object detection. One of its strengths lies in its very end-to-end nature. After ablation studies contacted by the authors it was demonstrated that it doesn't require post processing methods like non-maximum supression (NMS) to be applied to its outputs. It's speculated that the used 'object queries' in the transformer decoder achieve very powerful separation of the detected objects, rendering NMS obsolete. \par
+%But it could also be due to the use of the hungarian algorithm  for the loss computation. Understand!
+DETR however has some important limitations, some of which have inspired authors to propose improvements on the original architecture. Firstly, DETR requires a large number of training epochs to converge (was trained on COCO 2017 for around 500 epochs), because attention lacks the inductive biases that allow ConvNets to learn fast from relatively small datasets. Another shortcoming of DETR is that it doesn't perform equally well in detecting small objects. Hence, the authors in \cite{zhu2020deformable} proposed a deformable version of the model, which mitigates this issue. \par
+% could it be that deformable attention is related to deformable convolutions? So it seems in this video i found on youtube :) 
+%It's just a different way to compute the attention mechanism which makes more sense for imaging, it's closer to the benefits of CNNs. Here it is explained https://www.youtube.com/watch?v=al1JXZTBIfU
+Almost a year after DETR, the first successful purely transformer based architecture for imaging applications was introduced in  \cite{dosovitskiy2020vit}. In general, a naive application of self-attention to images would require that each pixel attends to every other
+pixel, which is extremely computationally inefficient for real input sizes (like the images in COCO or ImageNet \cite{imagenet}). Before ViTs there have been different attempts to tackle this issue like computing self-attention only in a local neighborhood \cite{imageTrans2018} or \cite{cordonnier} computing self-attention on extracted 2x2 patches from the input image. However, ViT was the first work to demonstrate that with appropriate training (on a large enough dataset) purely transformer based backbones can achieve comparable performance to CNNs by proposing a simple but elegant patching approach similar to \cite{cordonnier}.  
+% more failed past attempts in ViT related work section
+
+% Lack of inductive bias can be circumvired with apropriate/ long enough training ! ViT
+% that last part about the large enough dataset is important. In introduction they explain that the lack of inductive bias is problematic when training on medium sized datasets and the results are discouraging! 
+After the successful introduction of ViTs, various attempts have been made to improve their performance and suggest more powerful purely transformer based backbones. Indeed the Swin \cite{swin} family of vision transformers are among the most powerful backbones currently. Swin Transformers achieve superior performance to ViT by proposing a hierarchical encoder architecture that produces feature representations at different scales and an improved way to compute self-attention in the transformer module with shifted windowing. The SegFormer \cite{segformer} on the other hand proposes a more efficient self attention computation scheme with the same hierarchical setup and is a more lightweight and efficient alternative to Swin without sacrificing much on accuracy.
+%Segformer introduction explains very well ViTs! Their main principle of operation but also their shortcomings that led to the introduction of other models! 
+In the upcoming sections we will dive deeper in the details of the transformer architecture and how it was adapted in DETR to address complex vision tasks like object detection and panoptic segmentation. We will also describe in more detail ViT and the powerful and efficient SegFormer backbone which was preferred for efficiency reasons to other backbones and is part of our model architecture.
+\section{Attention mechanism in imaging}
+% BERT performs machine translation purely relying on the transformer architecture (multihead) without any convolutions. After the multi head encoder/decoder scheme a learned linear transformation and softmax function converts the decoder output to predicted next-token probabilities. Similarly to other sequence transduction models, learned embeddings are used to convert the input and output tokens to vectors of dimension $d_model$.\par
+The attention mechanism proposed in \cite{AttentionIsAllYouNeed} and adopted in ViT and DETR is a scaled version of dot product attention, as dot product attention is more computationally efficient than additive attention \cite{additiveAttention}. More specifically, the formula for a single head transformer is as follows: 
+\begin{equation}
+    Attention(Q, K, V ) = softmax(\frac{Q^{T}K}{\sqrt{d_{k}}})V^{T}
+\end{equation}
+This is a vectorised formulation of the attention mechanism with Q, K, V being vectors already scaled with learnable weights. More specifically, the terms Q, K, V are obtained as follows:
+\begin{gather}
+    Q = W_{q}(X_{q}+P_{q}) \text{ with } W_{q} \in \mathbb{R}^{d_hxd},  P_{q} \in \mathbb{R}^{dxN_q}, X_{q} \in \mathbb{R}^{dxN_q}\\
+    K = W_{k}(X_{kv}+P_{k}) \text{ with } W_{k} \in \mathbb{R}^{d_hxd},  P_{k} \in \mathbb{R}^{dxN_{kv}}, X_{kv} \in \mathbb{R}^{dxN_{kv}} \\
+    V = W_{v}X_{kv} \text{ with } W_{q} \in \mathbb{R}^{dxd},  X_{kv} \in \mathbb{R}^{dxN_{kv}}
+\end{gather}
+2.1-2.4 are adapted for a multi head attention block as follows: 
+\begin{gather}
+    MultiHead(Q, K, V) = Concat(head_{1}, ..., head_{m})W^{0} \\
+    \text{where } head_{i} = Attention(Q_{i}, K_{i}, V_{i})
+\end{gather}
+
+The nature of keys, queries and values vary depending on the type of attention computed in the model. For example in DETR the following Multihead Attention mechanisms are encountered:
+\begin{itemize}
+    \item \textbf{Self attention}: Attention mechanism applied in the encoder between the elements of the extracted feature map also in the decoder between object queries. All three embeddings (Q, K, V) taking part in the computation are linear projections of the same input vector (Xq = Xkv ).
+    \item \textbf{Cross attention}: Attention is computed between the output of the transformer encoder which plays the role of Xkv and the output of the self-attention layers in the decoder which corresponds to Xq. The encoder output is  a richer feature map in terms of representation after self-attention is applied on the original feature map obtained with a CNN backbone.  The output of the self-attention layer in the decoder is  with a set of Nq embeddings with length t called object queries. 
+\end{itemize}
+
+ViT uses attention only for feature extraction. Hence, ViTs use the exact same multiHead self- attention mechanism introduced in the encoder module of BERT and also adopted in DETR. The main novelty of the paper in terms of attention computation lies in the way the input images are converted into tokens with patching before getting transformed by a
+learnable linear projection layer and fed to the encoder. \par
+%Also the MLP in the transformer block is slightly altered (they use GeLU non linearities, anything else?) \par
+The SegFormer on the other hand adopts a more elaborate hierarchical transformer encoder architecture that generates feature maps in different resolutions. This designer choice results in a potentially richer feature representation, similar to the one in CNNs, which learn multi level features. \par
+% The classic transformer architecture proposed in \cite{AttentionIsAllYouNeed} uses multi-head attention in three different ways:
+% \begin{itemize}
+%     \item Self attention layers in the encoder
+%     \item Self attention layers in the decoder
+%     \item Cross attention layers in the decoder between encoder/ decoder queries
+% \end{itemize}
+% We elaborate more on the nature of different attention mechanisms in the transformer and nature of keys, queries and values in the next subsection, where we focus on the use of transformers in imaging.\par
+
+
+% Inputs in large language models typically undergo a tokenisation process before fed to the model \cite{word2vec}. Attention mechanisms by construction unlike convolutions or recurrence treats all input tokens in a sequence as independent (we attent all tokens with all tokens). Hence, positional information about the tokens is lost during the operation. The authors propose to overcome this issue by encoding the position with the use of positional encodings. More specifically they experimented with learned and fixed mechanisms and end up proposing the concatenation of a fixed, sinusoidal positional embeddings to the tokenised word vectors that act as input. For this operation to be successful, the positional encodings have the same dimension $d_model$ as the input embeddings in the attention mechanism, so that the two vectors can be summed.
+% % I tried to only include aspects of BERT architecture that are relevant to DETR and skip everything else 
+
+% \section{Attention mechanism proposed in DETR}
+% DETR adopts the same attention mechanism as in BERT, but also uses a ConvNet backbone for feature extraction before the extracted features are fed in the transformer. As expected, the nature of the queries and positional encodings pose some differences in the imaging domain compared to the original NLP design. Also the output of the decoder is handled differently depending on the performed task. For example, a different decoder is prefered based on whether detection or panoptic segmentation is performed.\par
+
+
+% \begin{itemize}
+%     \item Self attention layers in the encoder: All keys, values and queries result from the extracted feature embeddings that are fed as input in the TF encoder.
+%     \item Self attention layers in decoder: All keys, values and queries result from the object queries, a fixed number of learnable embeddings that help split the objects during decoding. Each query learns through this self attention mechanism to attent to a different part of the image, where a distinct object lies. A positional encoding mechanism is used along the object queries to help distinct them and retain a notion of their order.
+%     \item Cross attention in the decoder: The cross attention mechanism is applied between the encoded image features (output of encoder) and the self attended object queries incoming in the decoder after the self attention layer. The resulting output is a fixed number of object aware embeddings. The embeddings can be decoded to obtain masks or passed in fully connected layers to get boxes. (sort of, cause in DETR the panoptic head comes after the bbox extraction if not mistaken. Check! 
+% \end{itemize}
+
+%\textbf{Distinction between self attention and cross attention:}
+
+%TODO:
+% + Add visual comparison of DETR and BERT? Showcase how similar they are + also with ViTs! ViTs are even more similar to BERT than DETR without the feature extraction block! 
+% DETR especially combined with bipartate matching loss is a very powerful detector that does not require nms (cite nms). The loss is computed in two steps. First, an optimal assignment between predictions and ground truth bboxes and class label annotations is computed using the Hungarian algorithm. Then, total loss is computed as a sum of losses between the matched prediction- gt pairs. \par
+
+% \begin{equation}
+%     \hat{\sigma} = \underset{\sigma \in \mathfrak{S}_{N}}{\mathrm{argmax}}\sum_{i}^{N}C_{match}(y_i, \hat{y}_{\sigma(i)})
+% \end{equation}
+
+
+% % formula for C_match is better provided at trackformer
+% The cost matrix $C_{match}$ used in the linear sum assignment of the Hungarian algorithm is a combination of the matching cost for each ground truth box with each prediction (all possible combinations are taken into account). For a single possible matching pair cost is computed by penalising bounding box differences based on a the $l_1$ distance (between potential gt box and predicted box) and generalised intersection over union (IoU) as well as the predicted class probability.
+% \begin{gather}
+%     C_{match} = -\lambda_{cls}\hat{p}_{\sigma(i)}(c_{1}) + C_{box}(b_{i},\hat{b}_{\sigma(i)})\\
+%     C_{box} = \lambda_{l_{1}}|b_i-\hat{b}_{\sigma(i)}|_1 + \lambda_{iou}C_{iou}((b_{i},\hat{b}_{\sigma(i)})
+% \end{gather}
+
+% After finding the optimal assignment, the total loss is computed as a sum of all the losses between pairs of matching ground truth boxes and predicted boxes
+% \begin{equation}
+%     L(y, \hat{y},\pi) =\sum_{i=1}^{N} -\lambda_{cls}\hat{p}_{\sigma(i)}(c_{1}) + L_{box}(b_{i},\hat{b}_{\sigma(i)}) % here i used the notation from DETR instead of Trackformer
+% \end{equation}
+
+% % Add formulas for final loss in DETR! 
+
+% \textbf{Notes}\\
+% Other things i'd like to take into account in the analysis:
+% \begin{itemize}
+%     \item Attention in imaging, is there a good resource to explain it?
+% \end{itemize}
+
+% + Add overview of bert/detr transformer as an image? See notes! 
+
+
+
+%\section{Attention mechanisms in purely attention based backbones}
+% this shows nicely what Vits learn: DINO https://arxiv.org/pdf/2104.14294.pdf
+
+%TODO: SInce now we have segformer in the Mix, would be nice to explain also ViTs! 
+%Segformer is special compared to ViTs because it uses hierarchical attention, resulting in intermediate feature maps with different spacial dimensions!  
+% \subsection{Attention mechanisms in ViT}
+% ViTs use the exact same multiHead self- attention mechanism introduced in the encoder module of BERT and also adopted in DETR. The main novelty of the paper lies in the way the input images are converted into tokens with patching before getting transformed by a learnable linear projection layer and fed to the encoder.
+% %(that learnable linear projection layer is present if I'm not mistaken also in BERT!)(++)
+% Also the MLP in the transformer block is slightly altered (they use GeLU non linearities, anything else?)\par
+% Is there any other novelty? examine paper more thorougly! 
+%TODO: write more and more general stuff based on ViT
+%\subsection{Attention mechanisms in SegFormer}
+
+% As already mentioned, the SegFormer encoder features multiple transformer blocks that produce feature representations at different scales. The used transformer blocks are similar to the encoder blocks used in DETR/ViT, but pose slight variations. More specifically, they involve a novel Efficient self-attention mechanism, a mix FFN instead of the classic FFN and an overlap patch merging block.\par
+
+ % Also worth noting is that the SegFormer is a complete solution for image segmentation (they didn't only suggest a new backbone but rather also a very efficient decoder.
+ %And what else, are there any other paper contributions worth noting down?
+
+% you gotta think about images, all these images probably have copyright, so what do you do with them?
+%TODO:
+% + Add image of hierarchical architecture
+% + Add image (overview) comparing their transformer block with the transformer block (eg encoder) in ViT/BERT
